@@ -1,11 +1,12 @@
 import colors from 'picocolors'
 import strip from 'strip-ansi'
-import { join, extname } from 'path';
+import { join } from 'path';
 import { cwd } from 'process';
 import { spawnSync } from 'child_process';
 import { existsSync, promises as fsp } from 'fs';
 
 // TODO: make configurable
+// TODO: use Vite root
 const src_dir = join(cwd(), '/src')
 const build_dir = join(cwd(), '/_build/default/src')
 const deps_dir = join(cwd(), '/_build/default/node_modules')
@@ -73,7 +74,7 @@ function pad(source, n = 2) {
   return lines.map((l) => ` `.repeat(n) + l).join(`\n`)
 }
 
-const logRegex = /File "(?<file>.+)", line (?<line>\d+), characters (?<col>[\d-]+):\n(?<frame>.*)\n(?<arrows>.*)\n(?<message1>.+)(\n(?<message2>.+))?(\n(?<message3>.+))?/g
+const logRegex = /File "(?<file>.+)", line (?<line>\d+), characters (?<col>[\d-]+):\r?\n(?<frame>.*)\r?\n(?<arrows>.*)\r?\n(?<message>([^]+?(?=\r?\nFile)|[^]+))/g
 
 function compile(id) {
   // console.log('COMPILING for ' + id);
@@ -90,13 +91,7 @@ function createViteError(err) {
   const lineBorderIndex = err[0].groups.frame.indexOf('|') + 2;
   const frame = '> ' + err[0].groups.frame + '\n' + err[0].groups.arrows.slice(0, lineBorderIndex) + '| ' + err[0].groups.arrows.slice(lineBorderIndex);
   const file = err[0].groups.file.replace(build_dir, src_dir)
-  let message = 'Melange compilation failed:';
-  if (err[0].groups.message1)
-    message += '\n' + err[0].groups.message1
-  if (err[0].groups.message2)
-    message += '\n' + err[0].groups.message2
-  if (err[0].groups.message3)
-    message += '\n' + err[0].groups.message3
+  let message = 'Melange compilation failed:\n' + err[0].groups.message
 
   return {
     plugin: 'melange-plugin',
