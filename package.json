@@ -1,0 +1,30 @@
+{
+  "name": "vite-plugin-melange",
+  "version": "0.0.1",
+  "license": "AGPL",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pdelacroix/vite-plugin-melange.git"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "files": ["dist/index.js", "dist/index.es.js"],
+  "scripts": {
+    "build": "npx rollup -c",
+    "prepare": "npm run build"
+  },
+  "author": "pdelacroix <pierre@pdelacroix.com>",
+  "description": "Vite plugin for Melange",
+  "bugs": {
+    "url": "https://github.com/pdelacroix/vite-plugin-melange/-/issues"
+  },
+  "homepage": "https://github.com/pdelacroix/vite-plugin-melange#vite-plugin-melange",
+  "devDependencies": {
+    "rollup": "^2.69.0"
+  },
+  "dependencies": {
+  }
+}
