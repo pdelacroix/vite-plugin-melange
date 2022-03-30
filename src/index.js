@@ -113,7 +113,7 @@ function isMelangeSourceType(id) {
 }
 
 function isMelangeSource(id) {
-  return id.startsWith(src_dir) && isMelangeSource(id)
+  return id.startsWith(src_dir) && isMelangeSourceType(id)
 }
 
 function sourceToBuiltFile(id) {
@@ -131,6 +131,8 @@ export default function melangePlugin() {
     enforce: 'pre',
 
     async resolveId(source, importer, options) {
+      source = cleanUrl(source);
+      importer = importer && cleanUrl(importer);
       // We use the Melange entrypoint to compile for the first time
       // TODO: make entrypoint configurable
       if (source === '/src/main.ml') {
@@ -143,7 +145,7 @@ export default function melangePlugin() {
 
       // Sometimes Melange outputs dependency compiled files
       // in `_build/default/node_modules/`,
-      // instead of besides source files, in `node_modules/`
+      // instead of beside source files, in `node_modules/`
       if (!source.startsWith('/') && !source.startsWith('.') && existsSync(deps_dir + '/' + source)) {
         return { id: deps_dir + '/' + source, moduleSideEffects: null };
       }
@@ -163,6 +165,7 @@ export default function melangePlugin() {
     },
 
     async load(id) {
+      id = cleanUrl(id);
       if (isMelangeSource(id)) {
         try {
           return await fsp.readFile(sourceToBuiltFile(id), 'utf-8')

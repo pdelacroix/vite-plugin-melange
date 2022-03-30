@@ -23,5 +23,5 @@ export default {
 
 ```bash
 npm install
-npx rollup -c
+npm run build
 ```
