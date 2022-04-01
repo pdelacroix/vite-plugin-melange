@@ -74,24 +74,50 @@ function pad(source, n = 2) {
   return lines.map((l) => ` `.repeat(n) + l).join(`\n`)
 }
 
-const logRegex = /File "(?<file>.+)", line (?<line>\d+), characters (?<col>[\d-]+):\r?\n(?<frame>.*)\r?\n(?<arrows>.*)\r?\n(?<message>([^]+?(?=\r?\nFile)|[^]+))/g
+const esyLogRE = /error: (?<message>[^]+?(?=\r?\nesy: exiting due to errors above))/
+const melangeLogRE = /File "(?<file>.+)", line (?<line>\d+), characters (?<col>[\d-]+):\r?\n(?<frame>.*)\r?\n(?<arrows>.*)\r?\n(?<message>([^]+?(?=\r?\nFile)|[^]+))/
 
 function compile(id) {
   // console.log('COMPILING for ' + id);
   // TODO: make configurable
-  let { status, stderr, stdout } = spawnSync('esy', ['bsb', '-make-world']);
-  if (status === 0) {
-    return [];
+  let { status, stderr, stdout } = spawnSync('esy', ['mel', 'build']);
+  if (status !== 0) {
+    throw parseError(stderr.toString());
   }
-  // TODO: throw an exception
-  return [...stderr.toString().matchAll(logRegex)];
 }
 
-function createViteError(err) {
-  const lineBorderIndex = err[0].groups.frame.indexOf('|') + 2;
-  const frame = '> ' + err[0].groups.frame + '\n' + err[0].groups.arrows.slice(0, lineBorderIndex) + '| ' + err[0].groups.arrows.slice(lineBorderIndex);
-  const file = err[0].groups.file.replace(build_dir, src_dir)
-  let message = 'Melange compilation failed:\n' + err[0].groups.message
+function parseError(stderr) {
+  // console.log(stderr);
+  let match;
+  if ((match = stderr.match(esyLogRE)) !== null) {
+    return {
+      plugin: 'melange-plugin',
+      pluginCode: "ESY_ERROR",
+      message: 'Esy error:\n' + match.groups.message
+    }
+  }
+  else if ((match = stderr.match(melangeLogRE)) !== null) {
+    return createViteError(match);
+  }
+  else {
+    return {
+      plugin: 'melange-plugin',
+      pluginCode: "UNKNOWN_ERROR",
+      message: stderr
+    }
+  }
+}
+
+function createViteError(match) {
+  const lineBorderIndex = match.groups.frame.indexOf('|') + 2;
+  const frame = '> ' + match.groups.frame + '\n' + match.groups.arrows.slice(0, lineBorderIndex) + '| ' + match.groups.arrows.slice(lineBorderIndex);
+  let file;
+  if (match.groups.file.includes(build_dir)) {
+    file = match.groups.file.replace(build_dir, src_dir);
+  } else {
+    file = join(cwd(), match.groups.file);
+  }
+  let message = 'Melange compilation failed:\n' + match.groups.message
 
   return {
     plugin: 'melange-plugin',
@@ -102,8 +128,8 @@ function createViteError(err) {
     id: file,
     loc: {
       file: file,
-      line: err[0].groups.line,
-      column: err[0].groups.col,
+      line: match.groups.line,
+      column: match.groups.col,
     }
   };
 }
@@ -136,11 +162,7 @@ export default function melangePlugin() {
       // We use the Melange entrypoint to compile for the first time
       // TODO: make entrypoint configurable
       if (source === '/src/main.ml') {
-        const err = compile();
-        if (err.length > 0) {
-          const viteErr = createViteError(err);
-          this.error(viteErr);
-        }
+        compile(source);
       }
 
       // Sometimes Melange outputs dependency compiled files
@@ -173,11 +195,7 @@ export default function melangePlugin() {
           // If a compiled file is imported but missing,
           // we compile again
           if (e.code === 'ENOENT') {
-            const err = compile(id);
-            if (err.length > 0) {
-              const viteErr = createViteError(err);
-              this.error(viteErr);
-            }
+            compile(id);
           } else {
             throw e;
           }
@@ -189,12 +207,10 @@ export default function melangePlugin() {
     async handleHotUpdate({ file, modules, server }) {
       // We compile when a source file has changed
       if (isMelangeSource(file)) {
-        const err = compile(file);
-        if (err.length > 0) {
-          const viteErr = createViteError(err);
-          logError(server, viteErr);
-
-          return [];
+        try {
+          compile(file);
+        } catch (err) {
+          logError(server, err);
         }
       }
 
