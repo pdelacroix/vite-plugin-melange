@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-melange",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "AGPL",
   "publishConfig": {
     "access": "public"
@@ -26,5 +26,6 @@
     "rollup": "^2.69.0"
   },
   "dependencies": {
+    "strip-ansi": "^6.0.1"
   }
 }
