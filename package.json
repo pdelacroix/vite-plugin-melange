@@ -26,6 +26,7 @@
     "rollup": "^2.69.0"
   },
   "dependencies": {
+    "picocolors": "^1.0.0",
     "strip-ansi": "^6.0.1"
   }
 }
