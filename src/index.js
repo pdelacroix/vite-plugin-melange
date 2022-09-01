@@ -264,6 +264,7 @@ export default function melangePlugin() {
         launchMel()
 
         const log = readFileSync(melangeLogFile, 'utf-8')
+
         parseLog(log, (err) => {
           this.error(err)
           // throw err
@@ -284,36 +285,20 @@ export default function melangePlugin() {
         return { id: depsDir + '/' + source, moduleSideEffects: null };
       }
 
+      if (!(source.endsWith('.bs.js') && isMelangeSource(importer) && source.startsWith('.') && !importer.endsWith('index.html'))) {
+        return null
+      }
+
       // When a compiled file imports another compiled file,
       // `importer` will be the source file, so we resolve from the compiled file
       // and then return the source path for the resulting file
-      if (source.endsWith('.bs.js')) {
-        // console.log('in1');
-        let setExtension
-        let resolution
-        let sourceFile
-        if (importer.endsWith('index.html') && isMelangeSource(source)) {
-          // console.log('in2');
-          setExtension = null
-          source = source.replace(/\.bs\.js$/, '')
-        } else if (isMelangeSource(importer) && source.startsWith('.')) {
-          // console.log('in3');
-          setExtension = extname(importer)
-          importer = sourceToBuiltFile(importer);
-        } else {
-          // console.log('in4');
-          return null
-        }
-        resolution = await this.resolve(source, importer, { skipSelf: true, ...options });
-        sourceFile = builtFileToSource(resolution.id, setExtension)
-        if (resolution && resolution.id.startsWith(buildDir) && existsSync(sourceFile)) {
-          // console.log(resolution.id)
-          // console.log(sourceFile)
-          return { id: sourceFile }
-        }
+      const setExtension = extname(importer)
+      importer = sourceToBuiltFile(importer);
+      const resolution = await this.resolve(source, importer, { skipSelf: true, ...options });
+      const sourceFile = builtFileToSource(resolution.id, setExtension)
+      if (resolution && resolution.id.startsWith(buildDir) && existsSync(sourceFile)) {
+        return { id: sourceFile }
       }
-
-      return null
     },
 
     async load(id) {
@@ -327,6 +312,7 @@ export default function melangePlugin() {
     async handleHotUpdate({ file, modules, read, server }) {
       if (file == melangeLogFile) {
         const log = await read()
+
         parseLog(log, (err) => {
           logError(server, err)
           server.ws.send({
@@ -341,7 +327,8 @@ export default function melangePlugin() {
       if (isMelangeSource(file)) {
         // when a source file is changed, we wait for the compiler to compile
         // it before sending a hot update
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // @TODO: make configurable
+        await new Promise(resolve => setTimeout(resolve, 1000))
       }
 
       return modules
