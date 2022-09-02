@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-melange",
-  "version": "0.0.3",
+  "version": "1.0.0",
   "license": "AGPL",
   "publishConfig": {
     "access": "public"
@@ -11,7 +11,12 @@
   },
   "main": "dist/index.js",
   "module": "dist/index.es.js",
-  "files": ["dist/index.js", "dist/index.es.js"],
+  "files": [
+    "dist/index.js",
+    "dist/index.es.js",
+    "src/index.js",
+    "rollup.config.js"
+  ],
   "scripts": {
     "build": "npx rollup -c",
     "prepare": "npm run build"
