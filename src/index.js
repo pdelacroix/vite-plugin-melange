@@ -1,4 +1,4 @@
-import { join, extname } from 'path';
+import path from 'path';
 import { cwd } from 'process';
 import { spawnSync, spawn } from 'child_process';
 import { readFileSync, existsSync, promises as fsp } from 'fs';
@@ -7,10 +7,10 @@ import colors from 'picocolors'
 import strip from 'strip-ansi'
 // TODO: make configurable
 // TODO: use Vite root
-const srcDir = join(cwd(), '/src')
-const buildDir = join(cwd(), '/_build/default/src')
-const depsDir = join(cwd(), '/_build/default/node_modules')
-const melangeLogFile = join(cwd(), '_build/log')
+const srcDir = path.join(cwd(), '/src')
+const buildDir = path.join(cwd(), '/_build/default/src')
+const depsDir = path.join(cwd(), '/_build/default/node_modules')
+const melangeLogFile = path.join(cwd(), '_build/log')
 
 /*
 ** Code from Vite
@@ -175,6 +175,13 @@ function logError(server, err) {
   })
 }
 
+function logInfo(server, message, clear) {
+  server.config.logger.info(message, {
+    clear: !!clear,
+    timestamp: true
+  })
+}
+
 const melangeLogRE = /> File "(?<file>.+)", lines? (?<line>[\d-]+), characters (?<col>[\d-]+):\r?\n(?<frame>(> \d+[^]+?(?=\r?\n> \D))+)\r?\n(> (?<arrows>[ \^]+)\r?\n)?(?<message>(> .+\r?\n)+)/g
 
 function launchMel() {
@@ -197,7 +204,7 @@ function createViteError(match) {
   if (match.groups.file.includes(buildDir)) {
     file = match.groups.file.replace(buildDir, srcDir);
   } else {
-    file = join(cwd(), match.groups.file);
+    file = path.join(cwd(), match.groups.file);
   }
 
   return {
@@ -236,17 +243,20 @@ function builtFileToSource(id, extension) {
   }
 }
 
-function parseLog(log, onError, onWarn) {
+function parseLog(log, onError, onWarn, onSuccess) {
   const matches = log.matchAll(melangeLogRE)
+  let success = true
   for (let match of matches) {
     const err = createViteError(match);
     if (err.isError) {
+      success = false
       onError(err)
       // throw err
     } else {
       onWarn(err)
     }
   }
+  if (success && onSuccess) onSuccess()
 }
 
 export default function melangePlugin() {
@@ -275,6 +285,7 @@ export default function melangePlugin() {
     },
 
     async resolveId(source, importer, options) {
+      // console.log('resolve ' + importer + ' ' + source);
       source = cleanUrl(source);
       importer = importer && cleanUrl(importer);
 
@@ -285,23 +296,50 @@ export default function melangePlugin() {
         return { id: depsDir + '/' + source, moduleSideEffects: null };
       }
 
-      if (!(source.endsWith('.bs.js') && isMelangeSource(importer) && source.startsWith('.') && !importer.endsWith('index.html'))) {
+      if (!(source.endsWith('.bs.js') && isMelangeSource(importer) && source.startsWith('.'))) {
         return null
       }
+      // console.log(0)
 
       // When a compiled file imports another compiled file,
       // `importer` will be the source file, so we resolve from the compiled file
       // and then return the source path for the resulting file
-      const setExtension = extname(importer)
+      const setExtension = path.extname(importer)
       importer = sourceToBuiltFile(importer);
-      const resolution = await this.resolve(source, importer, { skipSelf: true, ...options });
-      const sourceFile = builtFileToSource(resolution.id, setExtension)
-      if (resolution && resolution.id.startsWith(buildDir) && existsSync(sourceFile)) {
+      // console.log(importer)
+      // console.log(1)
+      const resolution = path.resolve(path.dirname(importer), source)
+      // console.log(resolution)
+      if (existsSync(resolution)) {
+        const sourceFile = builtFileToSource(resolution, setExtension)
+        // console.log(sourceFile)
+        // console.log(2)
         return { id: sourceFile }
       }
+      else {
+        // console.log(3)
+        // console.log('read log from resolveId')
+        const log = readFileSync(melangeLogFile, 'utf-8')
+
+        parseLog(log, (err) => {
+          this.error(err)
+          // throw err
+        }, (err) => {
+          this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
+        })
+      }
+
+      return null
+    },
+
+    async transform(code, id) {
+      // console.log('transform ' + id);
+
+      return code;
     },
 
     async load(id) {
+      // console.log('load ' + id)
       id = cleanUrl(id);
       if (isMelangeSource(id)) {
         return await fsp.readFile(sourceToBuiltFile(id), 'utf-8')
@@ -310,7 +348,9 @@ export default function melangePlugin() {
     },
 
     async handleHotUpdate({ file, modules, read, server }) {
+      // console.log(file + modules.length)
       if (file == melangeLogFile) {
+        // console.log('reading log from hhu')
         const log = await read()
 
         parseLog(log, (err) => {
@@ -321,7 +361,7 @@ export default function melangePlugin() {
           })
         }, (err) => {
           logWarning(server, err)
-        })
+        }, () => { logInfo(server, "Successful Melange compilation", true) })
       }
 
       if (isMelangeSource(file)) {
