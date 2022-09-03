@@ -182,7 +182,7 @@ function logInfo(server, message, clear) {
   })
 }
 
-const melangeLogRE = /> File "(?<file>.+)", lines? (?<line>[\d-]+), characters (?<col>[\d-]+):\r?\n(?<frame>(> \d+[^]+?(?=\r?\n> \D))+)\r?\n(> (?<arrows>[ \^]+)\r?\n)?(?<message>(> .+\r?\n)+)/g
+const melangeLogRE = /> File "(?<file>.+)", lines? (?<line>[\d-]+)(, characters (?<col>[\d-]+))?:\r?\n((?<frame>(> \d+[^]+?(?=\r?\n> \D))+)\r?\n)?(> (?<arrows>[ \^]+)\r?\n)?(?<message>(> .+\r?\n)+)/g
 
 function launchMel() {
   // TODO: make configurable
@@ -195,10 +195,12 @@ function launchMelWatch() {
 }
 
 function createViteError(match) {
-  const lineBorderIndex = match.groups.frame.indexOf('|')
   let frame = match.groups.frame
-  if (match.groups.arrows) {
-    frame += '\n' + match.groups.arrows.slice(0, lineBorderIndex) + '| ' + match.groups.arrows.slice(lineBorderIndex);
+  if (frame) {
+    const lineBorderIndex = match.groups.frame.indexOf('|')
+    if (match.groups.arrows) {
+      frame += '\n' + match.groups.arrows.slice(0, lineBorderIndex) + '| ' + match.groups.arrows.slice(lineBorderIndex);
+    }
   }
   let file;
   if (match.groups.file.includes(buildDir)) {
@@ -220,7 +222,7 @@ function createViteError(match) {
       column: match.groups.col,
     },
     isError: /^> Error: /.test(match.groups.message)
-  };
+  }
 }
 
 function isMelangeSourceType(id) {
@@ -243,23 +245,22 @@ function builtFileToSource(id, extension) {
   }
 }
 
-function parseLog(log, onError, onWarn, onSuccess) {
-  const matches = log.matchAll(melangeLogRE)
-  let success = true
-  for (let match of matches) {
-    const err = createViteError(match);
-    if (err.isError) {
-      success = false
-      onError(err)
-      // throw err
-    } else {
-      onWarn(err)
-    }
+function parseLog(log) {
+  const messages = Array.from(log.matchAll(melangeLogRE), createViteError)
+  const firstError = messages.find((err) => err.isError)
+  const warnings = messages.filter((err) => !err.isError)
+
+  if (firstError) {
+    throw [firstError, warnings]
   }
-  if (success && onSuccess) onSuccess()
+  else {
+    return warnings
+  }
 }
 
 export default function melangePlugin() {
+  const changedSourceFiles = new Set()
+
   return {
     name: 'melange-plugin',
     enforce: 'pre',
@@ -275,17 +276,25 @@ export default function melangePlugin() {
 
         const log = readFileSync(melangeLogFile, 'utf-8')
 
-        parseLog(log, (err) => {
-          this.error(err)
-          // throw err
-        }, (err) => {
-          this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
-        })
+        try {
+          const warnings = parseLog(log)
+
+          warnings.forEach((err) => {
+            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
+          })
+        } catch (messages) {
+          const [error, warnings] = messages
+
+          warnings.forEach((err) => {
+            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
+          })
+
+          this.error(error)
+        }
       }
     },
 
     async resolveId(source, importer, options) {
-      // console.log('resolve ' + importer + ' ' + source);
       source = cleanUrl(source);
       importer = importer && cleanUrl(importer);
 
@@ -299,76 +308,90 @@ export default function melangePlugin() {
       if (!(source.endsWith('.bs.js') && isMelangeSource(importer) && source.startsWith('.'))) {
         return null
       }
-      // console.log(0)
 
       // When a compiled file imports another compiled file,
       // `importer` will be the source file, so we resolve from the compiled file
       // and then return the source path for the resulting file
       const setExtension = path.extname(importer)
       importer = sourceToBuiltFile(importer);
-      // console.log(importer)
-      // console.log(1)
       const resolution = path.resolve(path.dirname(importer), source)
-      // console.log(resolution)
+
       if (existsSync(resolution)) {
         const sourceFile = builtFileToSource(resolution, setExtension)
-        // console.log(sourceFile)
-        // console.log(2)
+
         return { id: sourceFile }
       }
       else {
-        // console.log(3)
-        // console.log('read log from resolveId')
-        const log = readFileSync(melangeLogFile, 'utf-8')
+        const log = await fsp.readFile(melangeLogFile, 'utf-8')
 
-        parseLog(log, (err) => {
-          this.error(err)
-          // throw err
-        }, (err) => {
-          this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
-        })
+        try {
+          const warnings = parseLog(log)
+
+          warnings.forEach((err) => {
+            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
+          })
+        } catch (messages) {
+          const [error, warnings] = messages
+
+          warnings.forEach((err) => {
+            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]))
+          })
+
+          this.error(error)
+        }
       }
 
       return null
     },
 
-    async transform(code, id) {
-      // console.log('transform ' + id);
-
-      return code;
-    },
-
     async load(id) {
-      // console.log('load ' + id)
       id = cleanUrl(id);
+
       if (isMelangeSource(id)) {
         return await fsp.readFile(sourceToBuiltFile(id), 'utf-8')
       }
+
       return null;
     },
 
     async handleHotUpdate({ file, modules, read, server }) {
-      // console.log(file + modules.length)
       if (file == melangeLogFile) {
-        // console.log('reading log from hhu')
+        console.log('reading log from hhu')
         const log = await read()
 
-        parseLog(log, (err) => {
-          logError(server, err)
+        try {
+          const warnings = parseLog(log)
+
+          warnings.forEach((err) => {
+            logWarning(server, err)
+          })
+
+          const changedModules = [...changedSourceFiles].map(file => [...server.moduleGraph.getModulesByFile(file)]).flat()
+          changedSourceFiles.clear()
+
+          return changedModules
+        } catch (messages) {
+          console.log(messages)
+          const [error, warnings] = messages
+
+          warnings.forEach((err) => {
+            logWarning(server, err)
+          })
+
+          logError(server, error)
+
           server.ws.send({
             type: 'error',
-            err: prepareError(err)
+            err: prepareError(error)
           })
-        }, (err) => {
-          logWarning(server, err)
-        }, () => { logInfo(server, "Successful Melange compilation", true) })
+
+          return []
+        }
       }
 
       if (isMelangeSource(file)) {
-        // when a source file is changed, we wait for the compiler to compile
-        // it before sending a hot update
-        // @TODO: make configurable
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        changedSourceFiles.add(file)
+        return []
       }
 
       return modules
