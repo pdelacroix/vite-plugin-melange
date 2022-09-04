@@ -1,7 +1,7 @@
 {
   "name": "vite-plugin-melange",
-  "version": "1.0.0",
-  "license": "AGPL",
+  "version": "1.1.0",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
