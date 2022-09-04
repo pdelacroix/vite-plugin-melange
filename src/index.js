@@ -356,7 +356,6 @@ export default function melangePlugin() {
 
     async handleHotUpdate({ file, modules, read, server }) {
       if (file == melangeLogFile) {
-        console.log('reading log from hhu')
         const log = await read()
 
         try {
