@@ -376,7 +376,6 @@ export default function melangePlugin() {
 
           return changedModules;
         } catch (messages) {
-          console.log(messages);
           const [error, warnings] = messages;
 
           warnings.forEach((err) => {
