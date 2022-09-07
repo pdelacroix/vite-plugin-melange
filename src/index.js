@@ -174,7 +174,7 @@ function logInfo(server, message, clear) {
 }
 
 const melangeLogRE =
-  /> File "(?<file>.+)", lines? (?<line>[\d-]+)(, characters (?<col>[\d-]+))?:\r?\n((?<frame>(> \d+[^]+?(?=\r?\n> \D))+)\r?\n)?(> (?<arrows>[ \^]+)\r?\n)?(?<message>(> .+\r?\n)+)/g;
+  /> File "(?<file>.+)", lines? (?<line>[\d-]+)(, characters (?<col>[\d-]+))?:\r?\n((?<frame>(> +(\d+.+|\.\.\.)\r?\n)+))?(> (?<arrows>[ \^]+)\r?\n)?(?<message>> [^]*?)(?=> File|\[\d+\]|$)/g;
 
 function launchMel() {
   // TODO: make configurable
