@@ -12,8 +12,22 @@ const context = "default";
 
 // TODO: use Vite root
 const srcDir = path.join(cwd(), srcSubDir);
-const buildDir = path.join(cwd(), "_build", context, srcSubDir, "output", srcSubDir);
-const depsDir = path.join(cwd(), "_build", context, srcSubDir, "output", "node_modules");
+const buildDir = path.join(
+  cwd(),
+  "_build",
+  context,
+  srcSubDir,
+  "output",
+  srcSubDir
+);
+const depsDir = path.join(
+  cwd(),
+  "_build",
+  context,
+  srcSubDir,
+  "output",
+  "node_modules"
+);
 const melangeLogFile = path.join(cwd(), "_build/log");
 
 /*
@@ -286,19 +300,19 @@ export default function melangePlugin(options) {
 
         let error = "";
 
-        child.stderr.on('data', (data) => {
+        child.stderr.on("data", (data) => {
           // this.error(data.toString());
           error += data.toString();
         });
 
-        child.on('close', (code) => {
+        child.on("close", (code) => {
           // console.log(`child process exited with code ${code}`);
           if (code != 0 && error != "") {
             this.error(error);
           }
         });
 
-        process.on('exit', () => {
+        process.on("exit", () => {
           child.kill();
         });
 
@@ -346,13 +360,7 @@ export default function melangePlugin(options) {
         return { id: depsDir + "/" + source, moduleSideEffects: null };
       }
 
-      if (
-        !(
-          importer &&
-          isMelangeSource(importer) &&
-          source.startsWith(".")
-        )
-      ) {
+      if (!(importer && isMelangeSource(importer) && source.startsWith("."))) {
         return null;
       }
 
