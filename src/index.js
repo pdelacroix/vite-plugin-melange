@@ -9,6 +9,7 @@ import strip from "strip-ansi";
 // TODO: make configurable
 const srcSubDir = "src";
 const context = "default";
+const target = "output";
 
 // TODO: use Vite root
 const srcDir = path.join(cwd(), srcSubDir);
@@ -17,7 +18,7 @@ const buildDir = path.join(
   "_build",
   context,
   srcSubDir,
-  "output",
+  target,
   srcSubDir
 );
 const depsDir = path.join(
@@ -25,7 +26,7 @@ const depsDir = path.join(
   "_build",
   context,
   srcSubDir,
-  "output",
+  target,
   "node_modules"
 );
 const melangeLogFile = path.join(cwd(), "_build/log");
