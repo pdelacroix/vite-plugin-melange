@@ -385,7 +385,29 @@ export default function melangePlugin(options) {
       id = cleanUrl(id);
 
       if (isMelangeSource(id)) {
-        return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
+        try {
+          return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
+        } catch (error) {
+          const log = await fsp.readFile(melangeLogFile, "utf-8");
+
+          try {
+            const warnings = parseLog(log);
+
+            warnings.forEach((err) => {
+              this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
+            });
+          } catch (messages) {
+            const [error, warnings] = messages;
+
+            warnings.forEach((err) => {
+              this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
+            });
+
+            this.error(error);
+          }
+
+          return null;
+        }
       }
 
       return null;
