@@ -5,16 +5,22 @@ import { readFileSync, existsSync, promises as fsp } from "fs";
 import getEtag from "etag";
 import colors from "picocolors";
 import strip from "strip-ansi";
+
 // TODO: make configurable
+const srcSubDir = "src";
+const context = "default";
+
 // TODO: use Vite root
-const srcDir = path.join(cwd(), "/src");
-const buildDir = path.join(cwd(), "/_build/default/src");
-const depsDir = path.join(cwd(), "/_build/default/node_modules");
+const srcDir = path.join(cwd(), srcSubDir);
+const buildDir = path.join(cwd(), "_build", context, srcSubDir, "output", srcSubDir);
+const depsDir = path.join(cwd(), "_build", context, srcSubDir, "output", "node_modules");
 const melangeLogFile = path.join(cwd(), "_build/log");
 
 /*
  ** Code from Vite
  */
+
+// TODO: move in separate file
 
 const ERR_OPTIMIZE_DEPS_PROCESSING_ERROR = "ERR_OPTIMIZE_DEPS_PROCESSING_ERROR";
 const ERR_OUTDATED_OPTIMIZED_DEP = "ERR_OUTDATED_OPTIMIZED_DEP";
