@@ -239,12 +239,12 @@ function isMelangeSource(id) {
 }
 
 function sourceToBuiltFile(id) {
-  return id.replace(srcDir, buildDir).replace(/\.(ml|re|res)$/, "") + ".bs.js";
+  return id.replace(srcDir, buildDir).replace(/\.(ml|re|res)$/, ".js");
 }
 
 function builtFileToSource(id, extension) {
   if (extension) {
-    return id.replace(buildDir, srcDir).replace(/\.bs\.js$/, "") + extension;
+    return id.replace(buildDir, srcDir).replace(/\.js$/, "") + extension;
   } else {
     return id.replace(buildDir, srcDir);
   }
@@ -339,7 +339,7 @@ export default function melangePlugin(options) {
 
       if (
         !(
-          source.endsWith(".bs.js") &&
+          importer &&
           isMelangeSource(importer) &&
           source.startsWith(".")
         )
