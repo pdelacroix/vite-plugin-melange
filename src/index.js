@@ -250,8 +250,16 @@ function builtFileToSource(id, extension) {
   }
 }
 
-function parseLog(log) {
-  const messages = Array.from(log.matchAll(melangeLogRE), createViteError);
+function parseLog(log, displayedErrors) {
+  const messages = Array.from(log.matchAll(melangeLogRE), (match) => {
+    if (displayedErrors.has(match.index)) {
+      return undefined;
+    } else {
+      displayedErrors.add(match.index);
+      return createViteError(match);
+    }
+  }).filter((err) => err);
+
   const firstError = messages.find((err) => err.isError);
   const warnings = messages.filter((err) => !err.isError);
 
@@ -266,6 +274,7 @@ export default function melangePlugin(options) {
   const { buildCommand, watchCommand } = options;
 
   const changedSourceFiles = new Set();
+  const displayedErrors = new Set();
 
   return {
     name: "melange-plugin",
@@ -305,7 +314,7 @@ export default function melangePlugin(options) {
         const log = readFileSync(melangeLogFile, "utf-8");
 
         try {
-          const warnings = parseLog(log);
+          const warnings = parseLog(log, displayedErrors);
 
           warnings.forEach((err) => {
             this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
@@ -362,7 +371,7 @@ export default function melangePlugin(options) {
         const log = await fsp.readFile(melangeLogFile, "utf-8");
 
         try {
-          const warnings = parseLog(log);
+          const warnings = parseLog(log, displayedErrors);
 
           warnings.forEach((err) => {
             this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
@@ -391,7 +400,7 @@ export default function melangePlugin(options) {
           const log = await fsp.readFile(melangeLogFile, "utf-8");
 
           try {
-            const warnings = parseLog(log);
+            const warnings = parseLog(log, displayedErrors);
 
             warnings.forEach((err) => {
               this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
@@ -418,7 +427,7 @@ export default function melangePlugin(options) {
         const log = await read();
 
         try {
-          const warnings = parseLog(log);
+          const warnings = parseLog(log, displayedErrors);
 
           warnings.forEach((err) => {
             logWarning(server, err);
