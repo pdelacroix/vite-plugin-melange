@@ -182,14 +182,18 @@ function logInfo(server, message, clear) {
 const melangeLogRE =
   /> File "(?<file>.+)", lines? (?<line>[\d-]+)(, characters (?<col>[\d-]+))?:\r?\n(?<frame>(> +(\d+.+|\.\.\.)\r?\n)+)?(> (?<arrows>[ \^]+)\r?\n)?(?<message>> [^]*?)(?=> File|\[\d+\]|\$ .*|$)/g;
 
-function launchMel() {
-  // TODO: make configurable
-  spawnSync("esy", ["mel", "build"]);
+function build(buildCommand) {
+  let args = buildCommand.split(" ");
+  let cmd = args.shift();
+
+  return spawnSync(cmd, args);
 }
 
-function launchMelWatch() {
-  // TODO: make configurable
-  spawn("esy", ["mel", "build", "--watch"]);
+function buildWatch(watchCommand) {
+  let args = watchCommand.split(" ");
+  let cmd = args.shift();
+
+  return spawn(cmd, args);
 }
 
 function createViteError(match) {
@@ -258,7 +262,9 @@ function parseLog(log) {
   }
 }
 
-export default function melangePlugin() {
+export default function melangePlugin(options) {
+  const { buildCommand, watchCommand } = options;
+
   const changedSourceFiles = new Set();
 
   return {
@@ -267,12 +273,34 @@ export default function melangePlugin() {
 
     buildStart() {
       if (this.meta.watchMode) {
-        launchMelWatch();
+        let child = buildWatch(watchCommand);
+
+        let error = "";
+
+        child.stderr.on('data', (data) => {
+          // this.error(data.toString());
+          error += data.toString();
+        });
+
+        child.on('close', (code) => {
+          // console.log(`child process exited with code ${code}`);
+          if (code != 0 && error != "") {
+            this.error(error);
+          }
+        });
+
+        process.on('exit', () => {
+          child.kill();
+        });
 
         // this does not work at the moment so we rely on handleHotUpdate
         // this.addWatchFile(melangeLogFile);
       } else {
-        launchMel();
+        let child = build(buildCommand);
+
+        if (child.status != 0 && child.stderr) {
+          this.error(child.stderr.toString());
+        }
 
         const log = readFileSync(melangeLogFile, "utf-8");
 
