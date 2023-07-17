@@ -402,7 +402,7 @@ export default function melangePlugin(options) {
     async load(id) {
       id = cleanUrl(id);
 
-      if (isMelangeSource(id)) {
+      if (isMelangeSourceType(id)) {
         try {
           return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
         } catch (error) {
