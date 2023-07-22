@@ -2,6 +2,12 @@
 
 A Vite plugin for Melange.
 
+## Features
+
+- Compile Melange source files as part of the build
+- Show errors on the commandline and in the browser overlay
+- HMR (hot module replacement) with Melange source filenames as module names
+
 ## Usage
 
 ```bash
