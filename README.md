@@ -43,9 +43,9 @@ The `watch` part is [configuring chokidar](https://github.com/paulmillr/chokidar
 
 - `buildCommand`: *(required)* Dune build command. For instance: `opam exec -- dune build`
 - `watchCommand`: *(required)* Dune watch command. For instance: `opam exec -- dune build --watch`
-- `buildContext`: (default: `"default"`) Dune [build context](https://dune.readthedocs.io/en/stable/overview.html#term-build-context). The default corresponds to Dune's default
-- `emitDir`: (default: `""`) directory where the `melange.emit` stanza is located. It defaults to empty string, which means the project's root folder, as it's [the recommended location](https://melange.re/v1.0.0/build-system/#guidelines-for-melangeemit)
-- `buildTarget`: (default: `"output"`) `target` field of the `melange.emit` stanza. It defines [the directory where the JavaScript artifacts will be placed](https://dune.readthedocs.io/en/stable/melange.html#melange-emit)
+- `buildContext`: *(default: `"default"`)* Dune [build context](https://dune.readthedocs.io/en/stable/overview.html#term-build-context). The default corresponds to Dune's default
+- `emitDir`: *(default: `""`)* directory where the `melange.emit` stanza is located. It defaults to empty string, which means the project's root folder, as it's [the recommended location](https://melange.re/v1.0.0/build-system/#guidelines-for-melangeemit)
+- `buildTarget`: *(default: `"output"`)* `target` field of the `melange.emit` stanza. It defines [the directory where the JavaScript artifacts will be placed](https://dune.readthedocs.io/en/stable/melange.html#melange-emit)
 
 ## Build
 
