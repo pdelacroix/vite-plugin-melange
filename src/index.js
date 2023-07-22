@@ -463,7 +463,11 @@ export default function melangePlugin(options) {
           });
 
           const changedModules = [...changedSourceFiles]
-            .map((file) => [...server.moduleGraph.getModulesByFile(file)])
+            .map((file) => [
+              ...((server.moduleGraph.getModulesByFile(file) &&
+                server.moduleGraph.getModulesByFile(file)) ||
+                []),
+            ])
             .flat();
           changedSourceFiles.clear();
 
