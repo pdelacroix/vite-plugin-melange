@@ -272,13 +272,30 @@ export default function melangePlugin(options) {
     );
   };
 
+  const artifactPath = (relativeJsPath) => {
+    return path.join(
+      config.root,
+      "_build",
+      buildContext || "default",
+      relativeJsPath || ""
+    );
+  };
+
   const depsDir = () => {
     return builtPath("node_modules");
   };
 
   const sourceToBuiltFile = (id) => {
+    let base;
+
+    if (id.includes(artifactPath(""))) {
+      base = artifactPath("");
+    } else {
+      base = config.root;
+    }
+
     const relativeJsPath = path
-      .relative(config.root, id)
+      .relative(base, id)
       .replace(/\.(ml|re|res)$/, ".js");
 
     return builtPath(relativeJsPath);
@@ -291,6 +308,9 @@ export default function melangePlugin(options) {
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".ml")),
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".re")),
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".res")),
+      path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".ml")),
+      path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".re")),
+      path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".res")),
     ]);
   };
 
@@ -389,9 +409,12 @@ export default function melangePlugin(options) {
       // and then return the source path for the resulting file
       importer = sourceToBuiltFile(importer);
       const resolution = path.resolve(path.dirname(importer), source);
+      // console.log(`${importer} resolves ${resolution}`);
 
       if (existsSync(resolution)) {
+        // console.log(`${importer} resolves ${resolution} it exists`);
         const sourceFile = builtFileToSource(resolution);
+        // console.log(`${source} is ${sourceFile}`);
 
         return { id: sourceFile };
       } else {
@@ -421,8 +444,6 @@ export default function melangePlugin(options) {
       id = cleanUrl(id);
 
       if (isMelangeSourceType(id)) {
-        // console.log('1');
-        // console.log(sourceToBuiltFile(id));
         try {
           return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
         } catch (error) {
