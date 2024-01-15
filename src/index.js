@@ -473,6 +473,11 @@ export default function melangePlugin(options) {
     },
 
     async handleHotUpdate({ file, modules, read, server }) {
+      // We don't want to send an HMR update for files that have been updated
+      // but make the compilation fail. So we store which files have changed,
+      // and when the log file shows that a compilation has succeeded, we send
+      // an HMR update for those files and reset the list of changed files.
+
       if (file == melangeLogFile()) {
         const log = await read();
 
