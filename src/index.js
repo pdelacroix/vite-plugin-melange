@@ -416,7 +416,12 @@ export default function melangePlugin(options) {
         const sourceFile = builtFileToSource(resolution);
         // console.log(`${source} is ${sourceFile}`);
 
-        return { id: sourceFile };
+        if (sourceFile) {
+          return { id: sourceFile };
+        } else {
+          // if the file imported is `runtime_deps` (from dune), there won't be any sourceFile
+          return { id: resolution };
+        }
       } else {
         const log = await fsp.readFile(melangeLogFile(), "utf-8");
 
