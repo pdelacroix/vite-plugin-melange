@@ -5,6 +5,7 @@ import { readFileSync, existsSync, promises as fsp } from "fs";
 import getEtag from "etag";
 import colors from "picocolors";
 import strip from "strip-ansi";
+import * as rpc from "./rpc";
 
 /*
  ** Code from Vite
@@ -140,38 +141,6 @@ function cleanStack(stack) {
     .join("\n");
 }
 
-function logWarning(server, err) {
-  server.config.logger.warn(
-    buildErrorMessage(err, [colors.yellow(err.message)]),
-    {
-      clear: false,
-      timestamp: true,
-      error: err,
-    }
-  );
-}
-
-function logError(server, err) {
-  server.config.logger.error(
-    buildErrorMessage(err, [colors.red(err.message)]),
-    {
-      clear: false,
-      timestamp: true,
-      error: err,
-    }
-  );
-}
-
-function logInfo(server, message, clear) {
-  server.config.logger.info(message, {
-    clear: !!clear,
-    timestamp: true,
-  });
-}
-
-const melangeLogRE =
-  /> File "(?<file>.+)", lines? (?<line>[\d-]+)(, characters (?<col>[\d-]+))?:\r?\n(?<frame>(> +(\d+.+|\.\.\.)\r?\n)+)?(> (?<arrows>[ \^]+)\r?\n)?(?<message>> [^]*?)(?=> File|\[\d+\]|\$ .*|$)/g;
-
 function build(buildCommand) {
   let args = buildCommand.split(" ");
   let cmd = args.shift();
@@ -186,32 +155,86 @@ function buildWatch(watchCommand) {
   return spawn(cmd, args);
 }
 
-function createViteError(match, artifactToSource) {
-  let frame = match.groups.frame;
-  if (frame) {
-    const lineBorderIndex = match.groups.frame.indexOf("|");
-    if (match.groups.arrows) {
-      frame +=
-        match.groups.arrows.slice(0, lineBorderIndex) +
-        "| " +
-        match.groups.arrows.slice(lineBorderIndex);
-    }
+function posToNumber(source, pos) {
+  if (typeof pos === "number") return pos;
+  const lines = source.split(splitRE);
+  const { line, column } = pos;
+  let start = 0;
+  for (let i = 0; i < line - 1 && i < lines.length; i++) {
+    start += lines[i].length + 1;
   }
-  const file = artifactToSource(match.groups.file);
+  return start + column;
+}
 
+const splitRE = /\r?\n/g;
+
+const range = 2;
+
+function generateCodeFrame(source, start = 0, end) {
+  start = Math.max(posToNumber(source, start), 0);
+  end = Math.min(
+    end !== undefined ? posToNumber(source, end) : start,
+    source.length
+  );
+  const lines = source.split(splitRE);
+  let count = 0;
+  const res = [];
+  for (let i = 0; i < lines.length; i++) {
+    count += lines[i].length;
+    if (count >= start) {
+      for (let j = i - range; j <= i + range || end > count; j++) {
+        if (j < 0 || j >= lines.length) continue;
+        const line = j + 1;
+        res.push(
+          `${line}${" ".repeat(Math.max(3 - String(line).length, 0))}|  ${
+            lines[j]
+          }`
+        );
+        const lineLength = lines[j].length;
+        if (j === i) {
+          // push underline
+          const pad = Math.max(start - (count - lineLength), 0);
+          const length = Math.max(
+            1,
+            end > count ? lineLength - pad : end - start
+          );
+          res.push(`   |  ` + " ".repeat(pad) + "^".repeat(length));
+        } else if (j > i) {
+          if (end > count) {
+            const length = Math.max(Math.min(end - count, lineLength), 1);
+            res.push(`   |  ` + "^".repeat(length));
+          }
+          count += lineLength + 1;
+        }
+      }
+      break;
+    }
+    count++;
+  }
+  return res.join("\n");
+}
+
+function createViteErrorFromRpc(error) {
   return {
     plugin: "melange-plugin",
     pluginCode: "MELANGE_COMPILATION_FAILED",
-    message: match.groups.message.replace(/^> /gm, "").replace(/^Error: /, ""),
-    frame: frame,
+    // message: match.groups.message.replace(/^> /gm, "").replace(/^Error: /, ""),
+    message: error.message,
+    frame:
+      error.start &&
+      generateCodeFrame(
+        readFileSync(error.file, "utf-8"),
+        error.start,
+        error.end
+      ),
     stack: "",
-    id: file,
-    loc: {
-      file: file,
-      line: match.groups.line.replace(/-\d+/, ""),
-      column: match.groups.col,
+    id: error.file,
+    loc: error.start && {
+      file: error.file,
+      line: error.start.line,
+      column: error.start.column + 1,
     },
-    isError: /^> Error: /.test(match.groups.message),
+    isError: error.severity === "error",
   };
 }
 
@@ -229,36 +252,14 @@ function tryFiles(files) {
   return undefined;
 }
 
-function parseLog(log, displayedErrors, artifactToSource) {
-  const messages = Array.from(log.matchAll(melangeLogRE), (match) => {
-    if (displayedErrors.has(match.index)) {
-      return undefined;
-    } else {
-      displayedErrors.add(match.index);
-      return createViteError(match, artifactToSource);
-    }
-  }).filter((err) => err);
-
-  const firstError = messages.find((err) => err.isError);
-  const warnings = messages.filter((err) => !err.isError);
-
-  if (firstError) {
-    throw [firstError, warnings];
-  } else {
-    return warnings;
-  }
-}
-
 export default function melangePlugin(options) {
   const { buildCommand, watchCommand, buildContext, buildTarget, emitDir } =
     options;
 
   let config;
+  let currentServer;
 
   const changedSourceFiles = new Set();
-  const displayedErrors = new Set();
-
-  const melangeLogFile = () => path.join(config.root, "_build/log");
 
   const builtPath = (relativeJsPath) => {
     // https://melange.re/v1.0.0/build-system/#javascript-artifacts-layout
@@ -322,6 +323,61 @@ export default function melangePlugin(options) {
     }
   };
 
+  const onSuccess = function () {
+    // console.log('Success');
+
+    this._container.config.logger.clearScreen("error");
+    this._container.config.logger.info(
+      colors.green("Melange compilation successful")
+    );
+
+    const changedModules = [...changedSourceFiles]
+      .map((file) => [
+        ...((currentServer.moduleGraph.getModulesByFile(file) &&
+          currentServer.moduleGraph.getModulesByFile(file)) ||
+          []),
+      ])
+      .flat();
+
+    changedModules.forEach((module) => {
+      currentServer.reloadModule(module);
+    });
+
+    changedSourceFiles.clear();
+  };
+
+  const onDiagnosticAdd = function (error) {
+    // console.log('DiagnosticAdd');
+    // console.log(error);
+
+    const viteError = createViteErrorFromRpc(error);
+    const builtError = buildErrorMessage(viteError, [
+      colors.red(viteError.message),
+    ]);
+
+    // this.error(createViteErrorFromRpc(error));
+    this._container.config.logger.error(builtError, {
+      clear: true,
+      timestamp: false,
+    });
+
+    currentServer.ws &&
+      currentServer.ws.send({
+        type: "error",
+        err: prepareError(viteError),
+      });
+  };
+
+  const onDiagnosticRemove = function (error) {
+    // console.log('DiagnosticRemove');
+    // console.log(error);
+  };
+
+  const onRpcError = function (error) {
+    console.log("RPC error");
+    console.log(data);
+  };
+
   return {
     name: "melange-plugin",
     enforce: "pre",
@@ -342,7 +398,8 @@ export default function melangePlugin(options) {
         });
 
         child.on("close", (code) => {
-          // console.log(`child process exited with code ${code}`);
+          console.log(`child process exited with code ${code}`);
+
           if (code != 0 && error != "") {
             this.error(error);
           }
@@ -352,31 +409,17 @@ export default function melangePlugin(options) {
           child.kill();
         });
 
-        // this does not work at the moment so we rely on handleHotUpdate
-        // this.addWatchFile(melangeLogFile());
+        rpc.init(
+          onSuccess.bind(this),
+          onDiagnosticAdd.bind(this),
+          onDiagnosticRemove.bind(this),
+          onRpcError.bind(this)
+        );
       } else {
         let child = build(buildCommand);
 
         if (child.status != 0 && child.stderr) {
           this.error(child.stderr.toString());
-        }
-
-        const log = readFileSync(melangeLogFile(), "utf-8");
-
-        try {
-          const warnings = parseLog(log, displayedErrors, artifactToSource);
-
-          warnings.forEach((err) => {
-            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-          });
-        } catch (messages) {
-          const [error, warnings] = messages;
-
-          warnings.forEach((err) => {
-            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-          });
-
-          this.error(error);
         }
       }
     },
@@ -422,24 +465,6 @@ export default function melangePlugin(options) {
           // if the file imported is `runtime_deps` (from dune), there won't be any sourceFile
           return { id: resolution };
         }
-      } else {
-        const log = await fsp.readFile(melangeLogFile(), "utf-8");
-
-        try {
-          const warnings = parseLog(log, displayedErrors, artifactToSource);
-
-          warnings.forEach((err) => {
-            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-          });
-        } catch (messages) {
-          const [error, warnings] = messages;
-
-          warnings.forEach((err) => {
-            this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-          });
-
-          this.error(error);
-        }
       }
 
       return null;
@@ -452,25 +477,7 @@ export default function melangePlugin(options) {
         try {
           return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
         } catch (error) {
-          const log = await fsp.readFile(melangeLogFile(), "utf-8");
-
-          try {
-            const warnings = parseLog(log, displayedErrors, artifactToSource);
-
-            warnings.forEach((err) => {
-              this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-            });
-          } catch (messages) {
-            const [error, warnings] = messages;
-
-            warnings.forEach((err) => {
-              this.warn(buildErrorMessage(err, [colors.yellow(err.message)]));
-            });
-
-            this.error(error);
-          }
-
-          return null;
+          return "";
         }
       }
 
@@ -480,49 +487,12 @@ export default function melangePlugin(options) {
     async handleHotUpdate({ file, modules, read, server }) {
       // We don't want to send an HMR update for files that have been updated
       // but make the compilation fail. So we store which files have changed,
-      // and when the log file shows that a compilation has succeeded, we send
-      // an HMR update for those files and reset the list of changed files.
-
-      if (file == melangeLogFile()) {
-        const log = await read();
-
-        try {
-          const warnings = parseLog(log, displayedErrors, artifactToSource);
-
-          warnings.forEach((err) => {
-            logWarning(server, err);
-          });
-
-          const changedModules = [...changedSourceFiles]
-            .map((file) => [
-              ...((server.moduleGraph.getModulesByFile(file) &&
-                server.moduleGraph.getModulesByFile(file)) ||
-                []),
-            ])
-            .flat();
-          changedSourceFiles.clear();
-
-          return changedModules;
-        } catch (messages) {
-          const [error, warnings] = messages;
-
-          warnings.forEach((err) => {
-            logWarning(server, err);
-          });
-
-          logError(server, error);
-
-          server.ws.send({
-            type: "error",
-            err: prepareError(error),
-          });
-
-          return [];
-        }
-      }
+      // and when a compilation has succeeded, we send an HMR update for those
+      // files and reset the list of changed files.
 
       if (isMelangeSourceType(file)) {
         changedSourceFiles.add(file);
+
         return [];
       }
 
@@ -530,6 +500,8 @@ export default function melangePlugin(options) {
     },
 
     configureServer(server) {
+      currentServer = server;
+
       server.middlewares.use(async function (req, res, next) {
         if (isMelangeSourceType(cleanUrl(req.url))) {
           // this is what the transform middleware does for filetypes it
