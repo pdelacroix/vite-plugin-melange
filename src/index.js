@@ -63,6 +63,7 @@ export default function melangePlugin(options) {
 
   let config;
   let currentServer;
+  let currentError;
 
   const changedSourceFiles = new Set();
 
@@ -128,8 +129,28 @@ export default function melangePlugin(options) {
     }
   };
 
+  const sendError = function (error) {
+    const builtError = utils.buildErrorMessage(error, [
+      colors.red(`Internal server error: ${error.message}`),
+    ]);
+
+    currentServer.config.logger &&
+      currentServer.config.logger.error(builtError, {
+        clear: true,
+        timestamp: true,
+      });
+
+    currentServer.ws &&
+      currentServer.ws.send({
+        type: "error",
+        err: utils.prepareError(error),
+      });
+  };
+
   const onSuccess = function () {
     // console.log('Success');
+
+    currentError = null;
 
     this._container.config.logger.clearScreen("error");
     this._container.config.logger.info(
@@ -156,21 +177,10 @@ export default function melangePlugin(options) {
     // console.log(error);
 
     const viteError = createViteErrorFromRpc(error);
-    const builtError = utils.buildErrorMessage(viteError, [
-      colors.red(viteError.message),
-    ]);
 
-    // this.error(createViteErrorFromRpc(error));
-    this._container.config.logger.error(builtError, {
-      clear: true,
-      timestamp: false,
-    });
+    sendError(viteError);
 
-    currentServer.ws &&
-      currentServer.ws.send({
-        type: "error",
-        err: utils.prepareError(viteError),
-      });
+    currentError = viteError;
   };
 
   const onDiagnosticRemove = function (error) {
@@ -277,12 +287,21 @@ export default function melangePlugin(options) {
 
     async load(id) {
       id = utils.cleanUrl(id);
+      // console.log(`loading ${id}`);
 
       if (isMelangeSourceType(id)) {
-        try {
-          return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
-        } catch (error) {
+        if (currentError) {
+          this.error(currentError, {
+            clear: true,
+            timestamp: true,
+          });
           return "";
+        } else {
+          try {
+            return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
+          } catch (error) {
+            return "";
+          }
         }
       }
 

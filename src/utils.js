@@ -118,13 +118,18 @@ export function prepareError(err) {
   };
 }
 
+function pad(source, n = 2) {
+  const lines = source.split(splitRE);
+  return lines.map((l) => ` `.repeat(n) + l).join(`\n`);
+}
+
 export function buildErrorMessage(err, args, includeStack = true) {
-  // if (err.plugin) args.push(`  Plugin: ${colors.magenta(err.plugin)}`)
-  // @TODO we can add line and column numbers
-  if (err.id) args.push(`${colors.white("file:")} ${colors.cyan(err.id)}`);
-  if (err.frame) args.push(colors.yellow(err.frame));
-  if (includeStack && err.stack) args.push(cleanStack(err.stack));
-  return args.join("\n") + "\n";
+  if (err.plugin) args.push(`  Plugin: ${colors.magenta(err.plugin)}`);
+  const loc = err.loc ? `:${err.loc.line}:${err.loc.column}` : "";
+  if (err.id) args.push(`  File: ${colors.cyan(err.id)}${loc}`);
+  if (err.frame) args.push(colors.yellow(pad(err.frame)));
+  if (includeStack && err.stack) args.push(pad(cleanStack(err.stack)));
+  return args.join("\n");
 }
 
 function cleanStack(stack) {
