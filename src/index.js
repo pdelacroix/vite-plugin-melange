@@ -19,7 +19,7 @@ function buildWatch(watchCommand) {
   return spawn(cmd, args);
 }
 
-function createViteErrorFromRpc(error) {
+function createViteErrorFromRpc(error, root) {
   return {
     plugin: "melange-plugin",
     pluginCode: "MELANGE_COMPILATION_FAILED",
@@ -33,7 +33,7 @@ function createViteErrorFromRpc(error) {
         error.end
       ),
     stack: "",
-    id: error.file,
+    id: path.relative(root, error.file),
     loc: error.start && {
       file: error.file,
       line: error.start.line,
@@ -164,6 +164,8 @@ export default function melangePlugin(options) {
       .flat();
 
     changedModules.forEach((module) => {
+      module.file = path.relative(config.root, module.file);
+
       currentServer.reloadModule(module);
     });
 
@@ -180,7 +182,7 @@ export default function melangePlugin(options) {
     // console.log('DiagnosticAdd');
     // console.log(error);
 
-    const viteError = createViteErrorFromRpc(error);
+    const viteError = createViteErrorFromRpc(error, config.root);
 
     sendError(viteError);
 
