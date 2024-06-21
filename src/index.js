@@ -150,10 +150,10 @@ export default function melangePlugin(options) {
   const onSuccess = function () {
     // console.log('Success');
 
-    this._container.config.logger.clearScreen("error");
-    this._container.config.logger.info(
-      colors.green("Melange compilation successful")
-    );
+    // this._container.config.logger.clearScreen("error");
+    // this._container.config.logger.info(
+    //   colors.green("Melange compilation successful")
+    // );
 
     const changedModules = [...changedSourceFiles]
       .map((file) => [
