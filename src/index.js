@@ -150,8 +150,6 @@ export default function melangePlugin(options) {
   const onSuccess = function () {
     // console.log('Success');
 
-    currentError = null;
-
     this._container.config.logger.clearScreen("error");
     this._container.config.logger.info(
       colors.green("Melange compilation successful")
@@ -169,7 +167,13 @@ export default function melangePlugin(options) {
       currentServer.reloadModule(module);
     });
 
+    if (changedModules.length === 0 && currentError) {
+      currentServer.ws.send({ type: "full-reload" });
+    }
+
     changedSourceFiles.clear();
+
+    currentError = null;
   };
 
   const onDiagnosticAdd = function (error) {
@@ -285,23 +289,25 @@ export default function melangePlugin(options) {
       return null;
     },
 
+    transformIndexHtml(html) {
+      if (currentError) {
+        // by throwing in transformIndexHtml, we use the errorMiddleware
+        // as soon as possible
+        throw currentError;
+      } else {
+        return html;
+      }
+    },
+
     async load(id) {
       id = utils.cleanUrl(id);
       // console.log(`loading ${id}`);
 
       if (isMelangeSourceType(id)) {
-        if (currentError) {
-          this.error(currentError, {
-            clear: true,
-            timestamp: true,
-          });
+        try {
+          return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
+        } catch (error) {
           return "";
-        } else {
-          try {
-            return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
-          } catch (error) {
-            return "";
-          }
         }
       }
 
