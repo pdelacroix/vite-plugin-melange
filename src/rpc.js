@@ -36,15 +36,18 @@ function make_error(input) {
 }
 
 export function init(
+  rpcPath,
   onSuccess,
   onDiagnosticAdd,
   onDiagnosticRemove,
   onRpcError
 ) {
-  socket = net.createConnection("./_build/.rpc/dune");
+  // console.log("init RPC socket");
+  // console.log(rpcPath);
+  socket = net.createConnection(rpcPath);
 
   socket.on("connect", () => {
-    // console.log("RPC connection connected");
+    // console.log("RPC socket connected");
 
     socket.write(initializePayload);
   });
@@ -56,7 +59,13 @@ export function init(
   socket.on("error", (err) => {
     if (err.code === "ENOENT") {
       setTimeout(() => {
-        init(onSuccess, onDiagnosticAdd, onDiagnosticRemove, onRpcError);
+        init(
+          rpcPath,
+          onSuccess,
+          onDiagnosticAdd,
+          onDiagnosticRemove,
+          onRpcError
+        );
       }, 200);
     } else {
       onRpcError(err);

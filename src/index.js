@@ -58,8 +58,14 @@ function tryFiles(files) {
 }
 
 export default function melangePlugin(options) {
-  const { buildCommand, watchCommand, buildContext, buildTarget, emitDir } =
-    options;
+  const {
+    buildCommand,
+    watchCommand,
+    duneDir,
+    buildContext,
+    buildTarget,
+    emitDir,
+  } = options;
 
   let config;
   let currentServer;
@@ -67,10 +73,18 @@ export default function melangePlugin(options) {
 
   const changedSourceFiles = new Set();
 
+  const dunePath = () => {
+    return path.join(config.root, duneDir || ".");
+  };
+
+  const rpcPath = () => {
+    return path.join(dunePath(), "_build/.rpc/dune");
+  };
+
   const builtPath = (relativeJsPath) => {
     // https://melange.re/v1.0.0/build-system/#javascript-artifacts-layout
     return path.join(
-      config.root,
+      dunePath(),
       "_build",
       buildContext || "default",
       emitDir || "",
@@ -81,7 +95,7 @@ export default function melangePlugin(options) {
 
   const artifactPath = (relativeJsPath) => {
     return path.join(
-      config.root,
+      dunePath(),
       "_build",
       buildContext || "default",
       relativeJsPath || ""
@@ -98,8 +112,9 @@ export default function melangePlugin(options) {
     if (id.includes(artifactPath(""))) {
       base = artifactPath("");
     } else {
-      base = config.root;
+      base = dunePath();
     }
+    // console.log(`${base} ${id} ${path.relative(base, id)}`)
 
     const relativeJsPath = path
       .relative(base, id)
@@ -231,6 +246,7 @@ export default function melangePlugin(options) {
         });
 
         rpc.init(
+          rpcPath(),
           onSuccess.bind(this),
           onDiagnosticAdd.bind(this),
           onDiagnosticRemove.bind(this),
@@ -265,6 +281,7 @@ export default function melangePlugin(options) {
       if (
         !(importer && isMelangeSourceType(importer) && source.startsWith("."))
       ) {
+        // console.log('resolveId returning null');
         return null;
       }
 
@@ -306,6 +323,7 @@ export default function melangePlugin(options) {
       // console.log(`loading ${id}`);
 
       if (isMelangeSourceType(id)) {
+        // console.log(`so loading ${sourceToBuiltFile(id)}`);
         try {
           return await fsp.readFile(sourceToBuiltFile(id), "utf-8");
         } catch (error) {
