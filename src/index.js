@@ -186,7 +186,14 @@ export default function melangePlugin(options) {
     });
 
     if (changedModules.length === 0 && currentError) {
-      currentServer.ws.send({ type: "full-reload" });
+      if (currentServer.ws.clients.size === 0) {
+        this._container.config.logger.clearScreen("error");
+        this._container.config.logger.info(
+          colors.green("Melange compilation error fixed!")
+        );
+      } else {
+        currentServer.ws.send({ type: "full-reload" });
+      }
     }
 
     changedSourceFiles.clear();
