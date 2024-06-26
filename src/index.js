@@ -212,7 +212,7 @@ export default function melangePlugin(options) {
 
   const onRpcError = function (error) {
     console.log("RPC error");
-    console.log(data);
+    console.log(error);
   };
 
   return {

@@ -86,12 +86,17 @@ export function init(
       // [ { id: [ 'initialize' ], result: [ 'ok', {} ] } ]
       if (payload.id[0] === "initialize" && payload.result[0] === "ok") {
         socket.write(versionsPayload);
-      } else if (
-        payload.id[0] === "version menu" &&
-        payload.result[0] === "ok"
-      ) {
+      }
+
+      // { id: [ 'version menu' ], result: [ 'ok', { 'poll/diagnostic': '2', 'poll/progress': '2' } ] }
+      else if (payload.id[0] === "version menu" && payload.result[0] === "ok") {
         socket.write(pollProgressPayload);
         socket.write(pollDiagnosticsPayload);
+      }
+
+      // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'error', { kind: 'Invalid_request', message: 'initialize request expected' } ] }
+      else if (payload.result[0] === "error") {
+        onRpcError(payload.result[1]);
       }
 
       // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'ok', [ 'Some', [ 'success', {} ] ] ] }
