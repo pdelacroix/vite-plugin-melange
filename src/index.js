@@ -68,6 +68,7 @@ export default function melangePlugin(options) {
   } = options;
 
   let config;
+  let duneProcess;
   let currentServer;
   let currentError;
 
@@ -224,25 +225,24 @@ export default function melangePlugin(options) {
 
     buildStart() {
       if (this.meta.watchMode) {
-        let child = buildWatch(watchCommand);
+        duneProcess = buildWatch(watchCommand);
 
         let error = "";
 
-        child.stderr.on("data", (data) => {
-          // this.error(data.toString());
+        duneProcess.stderr.on("data", (data) => {
+          // console.log(data.toString());
           error += data.toString();
         });
 
-        child.on("close", (code) => {
-          console.log(`child process exited with code ${code}`);
-
-          if (code != 0 && error != "") {
+        duneProcess.on("close", (code) => {
+          if (code === 1 && error != "") {
+            console.log(`child process exited with code ${code}`);
             this.error(error);
           }
         });
 
         process.on("exit", () => {
-          child.kill();
+          duneProcess.kill();
         });
 
         rpc.init(
@@ -259,6 +259,13 @@ export default function melangePlugin(options) {
           this.error(child.stderr.toString());
         }
       }
+    },
+
+    closeBundle() {
+      // console.log("close bundle");
+
+      rpc.destroy();
+      duneProcess && duneProcess.kill();
     },
 
     async resolveId(source, importer, options) {

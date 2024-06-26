@@ -126,6 +126,10 @@ export function init(
   });
 }
 
+export function destroy() {
+  socket && socket.destroy();
+}
+
 function parse(input) {
   const result = [];
   const stack = [];
