@@ -296,6 +296,17 @@ export default function melangePlugin(options) {
         return { id: depsDir() + "/" + source, moduleSideEffects: null };
       }
 
+      // Normal resolution sometimes does not happen...
+      if (isMelangeSourceType(source)) {
+        // console.log('importing melange file');
+
+        const resolution = path.resolve(path.dirname(importer), source);
+        if (existsSync(resolution)) {
+          // console.log('resolution found');
+          return { id: resolution };
+        }
+      }
+
       if (
         !(importer && isMelangeSourceType(importer) && source.startsWith("."))
       ) {
