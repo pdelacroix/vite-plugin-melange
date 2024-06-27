@@ -82,13 +82,17 @@ export default function melangePlugin(options) {
     return path.join(dunePath(), "_build/.rpc/dune");
   };
 
+  const emitPath = () => {
+    return path.join(config.root, emitDir || ".");
+  };
+
   const builtPath = (relativeJsPath) => {
     // https://melange.re/v1.0.0/build-system/#javascript-artifacts-layout
     return path.join(
       dunePath(),
       "_build",
       buildContext || "default",
-      emitDir || "",
+      path.relative(dunePath(), emitPath()),
       buildTarget || "output",
       relativeJsPath || ""
     );
