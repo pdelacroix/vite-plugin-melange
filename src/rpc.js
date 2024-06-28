@@ -17,7 +17,19 @@ const pollProgressPayload =
 const pollDiagnosticsPayload =
   "((2:id((4:poll(4:auto1:1))(1:i1:0)))(6:method15:poll/diagnostic)(6:params(4:auto1:1)))";
 
+//   Melange error:
 //   { directory: '/home/pierre/dev/melange-vite-template', id: '3', loc: { start: { pos_bol: '0', pos_cnum: '11', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' }, stop: { pos_bol: '0', pos_cnum: '14', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' } }, message: [ 'Vbox', [ '0', [ 'Box', [ '0', [ 'Verbatim', 'Unbound value asd\nHint: Did you mean asr?' ] ] ] ] ], promotion: {}, related: {}, severity: 'error', targets: {} }
+//   Dune error:
+//   { id: '0', loc: { start: { pos_bol: '0', pos_cnum: '0', pos_fname: '/home/pierre/dev/melange-tea-template/melange-tea-template.opam', pos_lnum: '1' }, stop: { pos_bol: '0', pos_cnum: '0', pos_fname: '/home/pierre/dev/melange-tea-template/melange-tea-template.opam', pos_lnum: '1' } }, message: [ 'Vbox', [ '0', [ 'Box', [ '0', [ 'Concat', [ [ 'Break', [ [ '', '1', '' ], [ '', '0', '' ] ] ], { Seq: { Tag: { Error: {}, Verbatim: 'Error' }, Char: ':' }, Text: "This opam file doesn't have a corresponding (package ...) stanza in the dune-project file. Since you have at least one other (package ...) stanza in your dune-project file, you must a (package ...) stanza for each opam package in your project." } ] ] ] ] ] ], promotion: {}, related: {}, severity: 'error', targets: {} }
+
+function extractMessage(message) {
+  if (message[1] && message[1].Text) {
+    return message[1].Text;
+  } else {
+    return message;
+  }
+}
+
 function make_error(input) {
   return {
     id: parseInt(input.id),
@@ -30,7 +42,7 @@ function make_error(input) {
       line: parseInt(input.loc.stop.pos_lnum),
       column: parseInt(input.loc.stop.pos_cnum),
     },
-    message: input.message[1][1][1][1][1],
+    message: extractMessage(input.message[1][1][1][1][1]),
     severity: input.severity,
   };
 }
