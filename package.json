@@ -22,9 +22,11 @@
     "import": "dist/index.mjs"
   },
   "files": [
+    "src/index.js",
+    "src/rpc.js",
+    "src/utils.js",
     "dist/index.cjs",
     "dist/index.mjs",
-    "src/index.js",
     "rollup.config.js"
   ],
   "scripts": {
