@@ -280,7 +280,7 @@ export default function melangePlugin(options) {
     },
 
     async resolveId(source, importer, options) {
-      source = utils.cleanUrl(source);
+      const {source: file, postfix} = utils.splitFileAndPostfix(source);
       importer = importer && utils.cleanUrl(importer);
       // console.log(`${source} from ${importer}`);
 
@@ -303,7 +303,7 @@ export default function melangePlugin(options) {
         const resolution = path.resolve(path.dirname(importer), source);
         if (existsSync(resolution)) {
           // console.log('resolution found');
-          return { id: resolution };
+          return { id: resolution + postfix };
         }
       }
 
@@ -327,10 +327,10 @@ export default function melangePlugin(options) {
         // console.log(`${source} is ${sourceFile}`);
 
         if (sourceFile) {
-          return { id: sourceFile };
+          return { id: sourceFile + postfix };
         } else {
           // if the file imported is `runtime_deps` (from dune), there won't be any sourceFile
-          return { id: resolution };
+          return { id: resolution + postfix };
         }
       }
 

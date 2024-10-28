@@ -11,8 +11,6 @@ const ERR_OUTDATED_OPTIMIZED_DEP = "ERR_OUTDATED_OPTIMIZED_DEP";
 const NULL_BYTE_PLACEHOLDER = `__x00__`;
 const VALID_ID_PREFIX = `/@id/`;
 
-const queryRE = /\?.*$/s;
-const hashRE = /#.*$/s;
 const importQueryRE = /(\?|&)import=?(?:&|$)/;
 const trailingSeparatorRE = /[\?&]$/;
 const timestampRE = /\bt=\d{13}&?\b/;
@@ -101,7 +99,16 @@ function send(req, res, content, type, options) {
   return;
 }
 
-export const cleanUrl = (url) => url.replace(hashRE, "").replace(queryRE, "");
+const postfixRE = /[?#].*$/;
+
+export function cleanUrl(url) {
+  return url.replace(postfixRE, '');
+}
+
+export function splitFileAndPostfix(path)  {
+  const file = cleanUrl(path);
+  return { file, postfix: path.slice(file.length) };
+}
 
 // used to propagate errors for WS in dev server mode
 export function prepareError(err) {
