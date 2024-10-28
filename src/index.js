@@ -300,6 +300,10 @@ export default function melangePlugin(options) {
       if (isMelangeSourceType(source)) {
         // console.log('importing melange file');
 
+        if (existsSync(source)) {
+          return { id: source + postfix };
+        }
+
         const resolution = path.resolve(path.dirname(importer), source);
         if (existsSync(resolution)) {
           // console.log('resolution found');
