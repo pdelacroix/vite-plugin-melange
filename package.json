@@ -3,7 +3,7 @@
   "description": "Vite plugin for Melange",
   "keywords": ["vite", "vite-plugin", "melange"],
   "author": "pdelacroix <pierre@pdelacroix.com>",
-  "version": "3.9.0",
+  "version": "3.10.0",
   "license": "MIT",
   "homepage": "https://github.com/pdelacroix/vite-plugin-melange#vite-plugin-melange",
   "bugs": {
