@@ -23,7 +23,7 @@ const pollDiagnosticsPayload =
 //   { id: '0', loc: { start: { pos_bol: '0', pos_cnum: '0', pos_fname: '/home/pierre/dev/melange-tea-template/melange-tea-template.opam', pos_lnum: '1' }, stop: { pos_bol: '0', pos_cnum: '0', pos_fname: '/home/pierre/dev/melange-tea-template/melange-tea-template.opam', pos_lnum: '1' } }, message: [ 'Vbox', [ '0', [ 'Box', [ '0', [ 'Concat', [ [ 'Break', [ [ '', '1', '' ], [ '', '0', '' ] ] ], { Seq: { Tag: { Error: {}, Verbatim: 'Error' }, Char: ':' }, Text: "This opam file doesn't have a corresponding (package ...) stanza in the dune-project file. Since you have at least one other (package ...) stanza in your dune-project file, you must a (package ...) stanza for each opam package in your project." } ] ] ] ] ] ], promotion: {}, related: {}, severity: 'error', targets: {} }
 
 function extractMessage(message) {
-  if (message[1] && message[1].Text) {
+  if (message && message[1] && message[1].Text) {
     return message[1].Text;
   } else {
     return message;
@@ -52,7 +52,7 @@ export function init(
   onSuccess,
   onDiagnosticAdd,
   onDiagnosticRemove,
-  onRpcError
+  onRpcError,
 ) {
   // console.log("init RPC socket");
   // console.log(rpcPath);
@@ -76,7 +76,7 @@ export function init(
           onSuccess,
           onDiagnosticAdd,
           onDiagnosticRemove,
-          onRpcError
+          onRpcError,
         );
       }, 200);
     } else {
@@ -93,50 +93,63 @@ export function init(
 
     payloads.forEach((payload) => {
       // console.log(util.inspect(payload, {depth: Infinity, colors: true, compact: false}));
-
-      // ((2:id(10:initialize))(6:result(2:ok())))
-      // [ { id: [ 'initialize' ], result: [ 'ok', {} ] } ]
-      if (payload.id[0] === "initialize" && payload.result[0] === "ok") {
-        socket.write(versionsPayload);
-      }
-
-      // { id: [ 'version menu' ], result: [ 'ok', { 'poll/diagnostic': '2', 'poll/progress': '2' } ] }
-      else if (payload.id[0] === "version menu" && payload.result[0] === "ok") {
-        socket.write(pollProgressPayload);
-        socket.write(pollDiagnosticsPayload);
-      }
-
-      // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'error', { kind: 'Invalid_request', message: 'initialize request expected' } ] }
-      else if (payload.result[0] === "error") {
-        onRpcError(payload.result[1]);
-      }
-
-      // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'ok', [ 'Some', [ 'success', {} ] ] ] }
-      else if (payload.id.poll && payload.id.poll[1] === "0") {
-        if (payload.result[1][1][0] === "success") {
-          onSuccess();
+      try {
+        // ((2:id(10:initialize))(6:result(2:ok())))
+        // [ { id: [ 'initialize' ], result: [ 'ok', {} ] } ]
+        if (payload.id[0] === "initialize" && payload.result[0] === "ok") {
+          socket.write(versionsPayload);
         }
 
-        socket.write(pollProgressPayload);
-      }
-
-      //   result: [ 'ok', [ 'Some', { Add: { directory: '/home/pierre/dev/melange-vite-template', id: '3', loc: { start: { pos_bol: '0', pos_cnum: '11', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' }, stop: { pos_bol: '0', pos_cnum: '14', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' } }, message: [ 'Vbox', [ '0', [ 'Box', [ '0', [ 'Verbatim', 'Unbound value asd\nHint: Did you mean asr?' ] ] ] ] ], promotion: {}, related: {}, severity: 'error', targets: {} } } ] ]
-      else if (payload.id.poll && payload.id.poll[1] === "1") {
-        if (payload.result[1] && payload.result[1][1].Add) {
-          onDiagnosticAdd(make_error(payload.result[1][1].Add));
-        } else if (payload.result[1] && payload.result[1][1].Remove) {
-          onDiagnosticRemove(make_error(payload.result[1][1].Remove));
+        // { id: [ 'version menu' ], result: [ 'ok', { 'poll/diagnostic': '2', 'poll/progress': '2' } ] }
+        else if (
+          payload.id[0] === "version menu" &&
+          payload.result[0] === "ok"
+        ) {
+          socket.write(pollProgressPayload);
+          socket.write(pollDiagnosticsPayload);
         }
 
-        socket.write(pollDiagnosticsPayload);
-      } else {
+        // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'error', { kind: 'Invalid_request', message: 'initialize request expected' } ] }
+        else if (payload.result[0] === "error") {
+          onRpcError(payload.result[1]);
+        }
+
+        // { id: { poll: [ 'auto', '0' ], i: '0' }, result: [ 'ok', [ 'Some', [ 'success', {} ] ] ] }
+        else if (payload.id.poll && payload.id.poll[1] === "0") {
+          if (payload.result[1][1][0] === "success") {
+            onSuccess();
+          }
+
+          socket.write(pollProgressPayload);
+        }
+
+        //   result: [ 'ok', [ 'Some', { Add: { directory: '/home/pierre/dev/melange-vite-template', id: '3', loc: { start: { pos_bol: '0', pos_cnum: '11', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' }, stop: { pos_bol: '0', pos_cnum: '14', pos_fname: '/home/pierre/dev/melange-vite-template/src/truc.re', pos_lnum: '1' } }, message: [ 'Vbox', [ '0', [ 'Box', [ '0', [ 'Verbatim', 'Unbound value asd\nHint: Did you mean asr?' ] ] ] ] ], promotion: {}, related: {}, severity: 'error', targets: {} } } ] ]
+        else if (payload.id.poll && payload.id.poll[1] === "1") {
+          if (payload.result[1] && payload.result[1][1].Add) {
+            onDiagnosticAdd(make_error(payload.result[1][1].Add));
+          } else if (payload.result[1] && payload.result[1][1].Remove) {
+            onDiagnosticRemove(make_error(payload.result[1][1].Remove));
+          }
+
+          socket.write(pollDiagnosticsPayload);
+        } else {
+          console.log("Unhandled payload");
+          console.log(
+            util.inspect(payload, {
+              depth: Infinity,
+              colors: true,
+              compact: false,
+            }),
+          );
+        }
+      } catch (e) {
         console.log("Unhandled payload");
         console.log(
           util.inspect(payload, {
             depth: Infinity,
             colors: true,
             compact: false,
-          })
+          }),
         );
       }
     });
