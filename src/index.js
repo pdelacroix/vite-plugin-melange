@@ -44,7 +44,7 @@ function createViteErrorFromRpc(error, root) {
 }
 
 function isMelangeSourceType(id) {
-  return id.endsWith(".ml") || id.endsWith(".re") || id.endsWith(".res");
+  return id.endsWith(".ml") || id.endsWith(".mlx") || id.endsWith(".re") || id.endsWith(".res");
 }
 
 function tryFiles(files) {
@@ -123,7 +123,7 @@ export default function melangePlugin(options) {
 
     const relativeJsPath = path
       .relative(base, id)
-      .replace(/\.(ml|re|res)$/, ".js");
+      .replace(/\.(ml|mlx|re|res)$/, ".js");
 
     return builtPath(relativeJsPath);
   };
@@ -133,9 +133,11 @@ export default function melangePlugin(options) {
 
     return tryFiles([
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".ml")),
+      path.join(config.root, relativePathAsJs.replace(/\.js$/, ".mlx")),
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".re")),
       path.join(config.root, relativePathAsJs.replace(/\.js$/, ".res")),
       path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".ml")),
+      path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".mlx")),
       path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".re")),
       path.join(artifactPath(relativePathAsJs).replace(/\.js$/, ".res")),
     ]);
